@@ -1,0 +1,34 @@
+aptClient = include_lib("/lib/aptclient.so")
+
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then
+    print("This is a command to download all files from the hackshop without paying for them")
+    print("Usage: hackshop <hackshop_ip_address>")
+end if
+
+if not is_valid_ip(param[0]) then exit("Invalid ip address1")
+
+add_repo_result = aptClient.add_repo(param[0])
+if result != "" then exit("Error while adding repo: " + add_repo_result)
+
+update_repo_result = aptClient.update()
+if update_repo_result == 0 then exit("/etc/apt/source.txt is malformed!")
+if update_repo_result != "" then exit("Error while updating repos: " + update_repo_result)
+
+installation_result = aptClient.install("AdminMonitor.exe", "/usr/bin")
+if installation_result != "" then exit("Error while installing: " + installation_result)
+installation_result = aptClient.install("decipher")
+if installation_result != "" then exit("Error while installing: " + installation_result)
+installation_result = aptClient.install("scanlib")
+if installation_result != "" then exit("Error while installing: " + installation_result)
+installation_result = aptClient.install("scanrouter")
+if installation_result != "" then exit("Error while installing: " + installation_result)
+installation_result = aptClient.install("rshell-server")
+if installation_result != "" then exit("Error while installing: " + installation_result)
+installation_result = aptClient.install("rshell_interface")
+if installation_result != "" then exit("Error while installing: " + installation_result)
+installation_result = aptClient.install("metaxploit.so")
+if installation_result != "" then exit("Error while installing: " + installation_result)
+installation_result = aptClient.install("crypto.so")
+if installation_result != "" then exit("Error while installing: " + installation_result)
+installation_result = aptClient.install("librshell.so")
+if installation_result != "" then exit("Error while installing: " + installation_result)
