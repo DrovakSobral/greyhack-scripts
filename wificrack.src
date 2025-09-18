@@ -1,0 +1,58 @@
+// Include the crypto lib
+cryptoLib = include_lib("/lib/crypto.so")
+if not cryptoLib then exit("Error: Couldn't find the crypto lib!")
+
+// Start the monitoring of the wifi card
+airmonResult = cryptoLib.airmon("start", "wlan0")
+if typeof(airmonResult) == "string" then
+    exit("Error: " + airmonResult)
+end if
+
+// Get all wifis and parse then  as objects into a list and sort by power in ascending order
+networksList = get_shell.host_computer.wifi_networks("wlan0")
+wifiList = []
+for network in networksList
+    parsedItem = network.split(" ")
+    wifi = {}
+    wifi.BSSID = parsedItem[0]
+    wifi.PWR = parsedItem[1].remove("%").to_int
+    wifi.ESSID = parsedItem[2]
+    wifiList.push(wifi)
+end for
+wifiList = wifiList.sort("PWR")
+
+// Print all wifis and wait for user choice
+print("Welcome to the wificrak tool!")
+print("Choose one of the wifis to be cracked:")
+for index in range(0, wifiList.len - 1)
+    print((index + 1) + ". " + wifiList[index].BSSID + " " + wifiList[index].PWR + " " + wifiList[index].ESSID)
+end for
+print("0. Exit the program")
+while true
+    userInput = user_input("Choose an option: ").to_int
+    if typeof(userInput) != "number" or userInput < 0 or userInput > wifiList.len() then 
+        print("Invalid option!")
+        continue
+    end if
+    if userInput == 0 then exit("Terminating program!")
+    choice = wifiList[userInput-1]
+    break
+end while
+
+// Use aireplay to inject packets into choosen wifi to the the file.cap file
+// Use aircrack and file.cap to get wifi password
+cryptoLib.aireplay(choice.BSSID, choice.ESSID, (300000 / (choice.PWR + 15)))
+wifiPassword = cryptoLib.aircrack(current_path + "/file.cap")
+
+// Disable wifi monitoring
+cryptoLib.airmon("stop", "wlan0")
+
+// Log into wifi
+result = get_shell.host_computer.connect_wifi("wlan0", choice.BSSID, choice.ESSID, wifiPassword)
+if typeof(result) == "string" then exit("Error: " + resutl)
+print("User sucessfully connectted to the following wifi:")
+print("BSSID: " + choice.BSSID + " | ESSID: " + choice.ESSID)
+
+// Delete file.cap because it is useless now
+result = get_shell.host_computer.File(current_path + "/file.cap").delete
+if result != "" then exit("Error: " + result)
