@@ -1,0 +1,82 @@
+// For testing use ip: 69.69.242.136
+
+// Nmap tool
+// Check to see if tool was called correctly or if the help function was used
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then 
+    print("nmap <TARGET_IP | INTERNET_ADDRESS>")
+    print("Scans a network for open ports where <TARGET_IP | INTERNET_ADDRESS> is the ip to scan.")
+    exit()
+end if
+
+if not is_valid_ip(params[0]) then exit("Error: invalid ip address")
+if not get_shell.host_computer.is_network_active then exit("nmap: No internet access.")
+
+targetIpAddress = params[0]
+
+// If the ip is lan get the local router, else get the router through the public ip
+isLanIp = is_lan_ip(targetIpAddress)
+if isLanIp then router = get_router else router = get_router(targetIpAddress)
+if router == null then exit("Error: IP Address not found")
+
+//Apparently router.used_ports only returns ports that 
+//are being forwarded by the router to the outside of the network, 
+//while router.device_ports returns all ports of a lan ip.
+//
+//Because all ports of a lan ip are automatically forwarded to themselves, 
+//we can use router.device_ports as router.used_ports.
+//That is the reason as to why port 8080 shows up on router.device_ports 
+//but not router.used_ports when the lan ip belongs to the router itself.
+//
+//It is also the reason for the loop and is going to be used later to 
+//check which ports are forwarded to the provided ip.
+ports = null
+if not isLanIp then
+   ports = router.used_ports
+else
+   ports = router.device_ports(targetIpAddress)
+end if
+if ports == null then exit("nmap: ip address not found")
+if typeof(ports) == "string" then exit("Error: " + ports)
+
+// Port 0 pointing to the router to add to the list
+if router.kernel_version == null then
+    routerPortZero = router.local_ip + " " + 0 + " TRUE OPEN unknown unknown"
+else
+    routerPortZero = router.local_ip + " " + 0 + " TRUE OPEN kernel_router " + router.kernel_version
+end if
+
+//List of all fowarded ports which is based on the ports returned earlier 
+//through either router.used_ports or router.device_ports
+fowardedPortList = []
+for port in ports fowardedPortList.push(port.get_lan_ip + " " + port.port_number + " " + router.port_info(port))
+
+// Make a list of all ports, be they fowarded or not while comparing it to the list of forwarded ports
+portList = [routerPortZero]
+// Loop through all lan ips of the router
+for ip in router.devices_lan_ip
+    // Get all ports that are forwarded to a given ip
+    for port in router.device_ports(ip)
+        // Check if the port is open or closed
+        if port.is_closed then state = "CLOSED " else state = "OPEN "
+        // Check if the port if fowarded to the target we gave
+        if fowardedPortList.indexOf(port.get_lan_ip + " " + port.port_number + " " + router.port_info(port)) != null then 
+            forwarded = "TRUE " 
+        else 
+            forwarded = "FALSE "
+        end if
+        // Add that port to the final master list of ports, with a check to make sure it already isn't there
+        index = port.get_lan_ip + " " + port.port_number + " " + forwarded + state + router.port_info(port)
+        if portList.indexOf(index) == null then portList.push(index)
+    end for
+end for
+// Sort ports by whether they are forwarded or not
+portList = portList.sort("TRUE")
+
+// Print the output
+if portList.len == 0 then exit("Scan finished. No ports found on the router or device.")
+info = "LAN_IP PORT FORWARDED STATE SERVICE VERSION" + char(10) + "------ ---- --------- ----- ------- -------"   
+for index in portList info = info + char(10) + index
+print("IP: " + targetIpAddress)
+print("ESSID: " + router.essid_name)
+print("BSSID: " + router.bssid_name)
+print(char(10) + format_columns(info) + char(10))
