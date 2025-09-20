@@ -1,11 +1,138 @@
 // Get the metaxploit lib
-metaxploitLib = include_lib("/lib/metaxploit.so")
-if not metaxploitLib then exit("Couldn't find the metaploit lib!")
+metaxploit_lib = include_lib("/lib/metaxploit.so")
+if not metaxploit_lib then exit("Couldn't find the metaploit lib!")
 
 // Get the crypto lib
-cryptoLib = include_lib("/lib/crypto.so")
-if not cryptoLib then exit("Couldn't find the crypto lib!")
+crypto_lib = include_lib("/lib/crypto.so")
+if not crypto_lib then exit("Couldn't find the crypto lib!")
 
 // Get the aptclient lib
-aptclientLib = include_lib("/lib/aptclient.so")
-if not aptclientLib then exit("Couldn't find the aptclient lib!")
+aptclient_lib = include_lib("/lib/aptclient.so")
+if not aptclient_lib then exit("Couldn't find the aptclient lib!")
+
+// Map of all commands, with the key being the name of the command and the value being a map of the command itself
+commands_map = {}
+
+// Command class to make new commands
+CommandClass = {
+    "name": null,
+    "args": null,
+    "short_info": null,
+    "full_info": null,
+    "run": null,
+    "show_help": null
+}
+
+// User class made to store sessions
+UserClass = {
+    "metaxploit_lib": null,
+    "crypto_lib": null,
+    "aptclient_lib": null,
+    "shell": null
+}    
+
+// Startup message of the toolkit
+welcome_message_function = function()
+    // Add some ASCII art later
+    print("Welcome to Drovak's hacking toolkit!")
+end function        
+
+// Show Help function
+show_help_function = function(name, args, full_info)
+    print(name + " " + args)
+    print(full_info)
+    return
+end function    
+
+// Help command
+help_command = new CommandClass
+help_command.name = "help"
+help_command.args = "[COMMAND]"
+help_command.short_info = "Display the help page"
+help_command.full_info = "This command will display the help pages. Where [COMMAND] is a command you would like a detailed description about."
+help_command.run = function(args)
+    if args and args[0] != "" then
+        if commands_map.hasIndex(args[0]) then
+            commands_map[args[0]].show_help
+            return
+        else
+            print("Command " + args[0] + " not found")
+            return
+        end if    
+    else
+        help_string = "COMMAND ARGUMENTS DESCRIPTION\n------ --------- -----------\n"
+        for command in commands_map
+            help_string = help_string + command.value.name + " " + command.value.args.replace(" ", "|") + " " + command.value.short_info.replace(" ", "|") + "\n"
+        end for    
+        print("\n" + format_columns(help_string).replace("\|", " ") + "\n")
+    end if    
+    return
+end function    
+help_command.show_help = function()
+    show_help_function(self.name, self.args, self.full_info)
+end function    
+commands_map.help = help_command
+
+// Clear command
+clear_command = new CommandClass
+clear_command.name = "clear"
+clear_command.args = "[N/A]"
+clear_command.short_info = "Clears the screen"
+clear_command.full_info = "This command will clear the screen and print the startup message"
+clear_command.run = function(args)
+    clear_screen
+    welcome_message_function
+    return
+end function
+clear_command.show_help = function()
+    show_help_function(self.name, self.args, self.full_info)
+    return
+end function
+commands_map.clear = clear_command
+
+// Exit command
+exit_command = new CommandClass
+exit_command.name = "exit"
+exit_command.args = "[N/A]"
+exit_command.short_info = "Terminate the CLI"
+exit_command.full_info = "This command will stop the execution of the CLI"
+exit_command.run = function(args)
+    exit
+    return
+end function
+exit_command.show_help = function()
+    show_help_function(self.name, self.args, self.full_info)
+    return
+end function
+commands_map.exit = exit_command
+
+
+// Command parsing logic
+command_parsing_logic = function(input_string)
+    input_list = input_string.split(" ")
+    command = input_list[0].lower
+    args = input_list[1:]
+
+    if not commands_map.hasIndex(command) then
+        print("Command " + command + " not found!")
+        return
+    else
+        commands_map[command].run(args)
+        return
+    end if
+end function
+
+
+// Main session of the program which allows the user to go back to his own computer at once
+main_session = new UserClass
+main_session.metaxploit_lib = metaxploit_lib
+main_session.crypto_lib = crypto_lib
+main_session.aptclient_lib = aptclient_lib
+main_session.shell = get_shell
+
+// Main Logic Loop
+welcome_message_function()
+while true
+    input = user_input("(" + current_path + ") " + active_user + "@" + main_session.shell.host_computer.get_name + " > ")
+    command_parsing_logic(input)
+end while
