@@ -1,0 +1,11 @@
+// Get the metaxploit lib
+metaxploitLib = include_lib("/lib/metaxploit.so")
+if not metaxploitLib then exit("Couldn't find the metaploit lib!")
+
+// Get the crypto lib
+cryptoLib = include_lib("/lib/crypto.so")
+if not cryptoLib then exit("Couldn't find the crypto lib!")
+
+// Get the aptclient lib
+aptclientLib = include_lib("/lib/aptclient.so")
+if not aptclientLib then exit("Couldn't find the aptclient lib!")
